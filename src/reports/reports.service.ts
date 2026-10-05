@@ -41,7 +41,7 @@ export class ReportsService {
       this.teacherModel.countDocuments({ active: true }),
       this.programModel.countDocuments({ active: true }),
       this.subjectModel.countDocuments({ active: true }),
-      this.facultyModel.countDocuments(),
+      this.facultyModel.countDocuments({ active: true }),
       this.classroomModel.countDocuments({ active: true }),
       this.groupModel.countDocuments({ active: true }),
     ]);

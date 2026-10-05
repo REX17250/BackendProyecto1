@@ -23,7 +23,7 @@ export class StudentsService {
     if (user.role !== Role.Estudiante) {
       throw new BadRequestException('El usuario no tiene rol estudiante');
     }
-    await this.programsService.findOne(dto.program);
+    await this.assertProgramActive(dto.program);
     return this.model.create(dto);
   }
 
@@ -73,11 +73,16 @@ export class StudentsService {
   }
 
   async update(id: string, dto: UpdateStudentDto): Promise<StudentDocument> {
-    if (dto.program) await this.programsService.findOne(dto.program);
+    if (dto.program) await this.assertProgramActive(dto.program);
     const student = await this.model
       .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
       .exec();
     if (!student) throw new NotFoundException('Estudiante no encontrado');
     return student;
+  }
+
+  private async assertProgramActive(programId: string): Promise<void> {
+    const program = await this.programsService.findOne(programId);
+    if (!program.active) throw new BadRequestException('El programa esta inactivo');
   }
 }

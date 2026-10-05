@@ -20,7 +20,7 @@ export class FacultiesService {
   ) {}
 
   async create(dto: CreateFacultyDto): Promise<FacultyDocument> {
-    if (dto.dean) await this.assertDean(dto.dean);
+    if (dto.dean) throw new BadRequestException('Asigna el decano despues de crear la facultad');
     return this.model.create(dto);
   }
 
@@ -40,14 +40,17 @@ export class FacultiesService {
   }
 
   async update(id: string, dto: UpdateFacultyDto): Promise<FacultyDocument> {
-    if (dto.dean) await this.assertDean(dto.dean);
+    if (dto.dean) await this.assertDean(dto.dean, id);
     const faculty = await this.model.findByIdAndUpdate(id, dto, { new: true, runValidators: true }).populate(POPULATE).exec();
     if (!faculty) throw new NotFoundException('Facultad no encontrada');
     return faculty;
   }
 
-  private async assertDean(teacherId: string): Promise<void> {
+  private async assertDean(teacherId: string, facultyId: string): Promise<void> {
     const teacher = await this.teachersService.findOne(teacherId);
     if (!teacher.active) throw new BadRequestException('El docente esta inactivo y no puede ser decano');
+    if (String(teacher.faculty) !== facultyId) {
+      throw new BadRequestException('El docente debe pertenecer a la facultad para ser decano');
+    }
   }
 }

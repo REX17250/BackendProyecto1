@@ -7,6 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -19,8 +20,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
         signOptions: { expiresIn: Number(config.getOrThrow<number>('JWT_EXPIRES_IN_SECONDS')) },
-
-
       }),
     }),
   ],
@@ -30,6 +29,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtStrategy,
     // Todas las rutas requieren JWT salvo las marcadas con @Public()
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AuthModule {}

@@ -15,7 +15,7 @@ export class SubjectsService {
   ) {}
 
   async create(dto: CreateSubjectDto): Promise<SubjectDocument> {
-    await this.programsService.findOne(dto.program);
+    await this.assertProgramActive(dto.program);
     await this.assertPrerequisitesExist(dto.prerequisites ?? []);
     return this.model.create(dto);
   }
@@ -49,7 +49,7 @@ export class SubjectsService {
   }
 
   async update(id: string, dto: UpdateSubjectDto): Promise<SubjectDocument> {
-    if (dto.program) await this.programsService.findOne(dto.program);
+    if (dto.program) await this.assertProgramActive(dto.program);
     if (dto.prerequisites) {
       await this.assertPrerequisitesExist(dto.prerequisites);
       await this.assertNoCycle(id, dto.prerequisites);
@@ -70,6 +70,11 @@ export class SubjectsService {
       { $group: { _id: null, total: { $sum: '$credits' } } },
     ]);
     return result?.total ?? 0;
+  }
+
+  private async assertProgramActive(programId: string): Promise<void> {
+    const program = await this.programsService.findOne(programId);
+    if (!program.active) throw new BadRequestException('El programa esta inactivo');
   }
 
   private async assertPrerequisitesExist(ids: string[]): Promise<void> {

@@ -6,6 +6,7 @@ import { FilterQuery, Model, PopulateOptions } from 'mongoose';
 import { Paginated, paginate } from '../common/dto/pagination-query.dto';
 import { ClassroomsService } from '../classrooms/classrooms.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { Enrollment, EnrollmentDocument, EnrollmentStatus } from '../enrollments/schemas/enrollment.schema';
 import { NotificationType } from '../notifications/schemas/notification.schema';
 import { PeriodsService } from '../periods/periods.service';
 import { PeriodStatus } from '../periods/schemas/period.schema';
@@ -28,6 +29,7 @@ const overlaps = slotsOverlap;
 export class GroupsService {
   constructor(
     @InjectModel(Group.name) private readonly model: Model<GroupDocument>,
+    @InjectModel(Enrollment.name) private readonly enrollmentModel: Model<EnrollmentDocument>,
     private readonly subjectsService: SubjectsService,
     private readonly teachersService: TeachersService,
     private readonly periodsService: PeriodsService,
@@ -95,7 +97,7 @@ export class GroupsService {
   // El admin gestiona cualquier grupo; un docente solo los que tiene a su cargo
   async assertCanManage(groupId: string, user: AuthUser): Promise<GroupDocument> {
     const group = await this.findRaw(groupId);
-    if (user.role === Role.Estudiante) {
+    if (user.role === Role.Docente) {
       const teacher = await this.teachersService.findByUserId(user.id);
       if (String(group.teacher) !== teacher.id) throw new ForbiddenException('El grupo no esta a tu cargo');
     }
@@ -112,6 +114,15 @@ export class GroupsService {
   async update(id: string, dto: UpdateGroupDto): Promise<GroupDocument> {
     const group = await this.model.findById(id).exec();
     if (!group) throw new NotFoundException('Grupo no encontrado');
+
+    const period = await this.periodsService.findOne(String(group.period));
+    if (period.status === PeriodStatus.Closed) {
+      throw new BadRequestException('No se puede editar un grupo de un periodo cerrado');
+    }
+    if (dto.active === false && group.active) {
+      const activeEnrollments = await this.enrollmentModel.exists({ group: group._id, status: EnrollmentStatus.Active });
+      if (activeEnrollments) throw new BadRequestException('No se puede desactivar un grupo con matriculas activas');
+    }
 
     if (dto.capacity !== undefined && dto.capacity < group.enrolled) {
       throw new BadRequestException(`El cupo no puede ser menor a los ${group.enrolled} estudiantes matriculados`);

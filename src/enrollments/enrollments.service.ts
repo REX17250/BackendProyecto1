@@ -76,7 +76,7 @@ export class EnrollmentsService {
       { model: 'Enrollment', id: created._id },
     );
     // Verifica que la matricula haya quedado confirmada
-    if (created.status === EnrollmentStatus.Active) {
+    if (created.status !== EnrollmentStatus.Active) {
       throw new BadRequestException('No se pudo confirmar la matricula');
     }
     return created;
@@ -97,6 +97,12 @@ export class EnrollmentsService {
       await session.withTransaction(async () => {
         enrollment.status = EnrollmentStatus.Cancelled;
         await enrollment.save({ session });
+        const group = await this.groupModel.findOneAndUpdate(
+          { _id: enrollment.group, enrolled: { $gt: 0 } },
+          { $inc: { enrolled: -1 } },
+          { session },
+        );
+        if (!group) throw new ConflictException('No se pudo liberar el cupo del grupo');
       });
     } finally {
       await session.endSession();
@@ -267,6 +273,9 @@ export class EnrollmentsService {
     if (user.role === Role.Estudiante) {
       const own = await this.studentsService.findByUserId(user.id);
       if (String(enrollment.student) !== own.id) throw new ForbiddenException('Esta matricula no es tuya');
+    }
+    if (user.role === Role.Docente) {
+      await this.groupsService.assertCanManage(String(enrollment.group), user);
     }
     return enrollment;
   }
